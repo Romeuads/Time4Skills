@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Time4Skills – Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/global.css">
+  <style>
+    .hero {
+      background: linear-gradient(135deg, var(--blue-dark), var(--teal));
+      padding: 24px 20px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .hero-title { font-size: 20px; font-weight: 800; color: #fff; }
+    .hero-sub   { font-size: 13px; color: rgba(255,255,255,.75); margin-top: 2px; font-weight: 500; }
+    .balance-card {
+      background: rgba(255,255,255,.18); backdrop-filter: blur(4px);
+      border: 1px solid rgba(255,255,255,.25); border-radius: 12px;
+      padding: 10px 14px; display: flex; align-items: center; gap: 6px;
+      color: #fff; font-size: 13px; font-weight: 700; flex-shrink: 0;
+    }
+    .balance-card svg { width: 16px; height: 16px; }
+    .search-wrap { padding: 14px 16px 8px; }
+    .search-box {
+      display: flex; align-items: center; gap: 8px;
+      background: var(--gray-card); border: 1.5px solid var(--border);
+      border-radius: 12px; padding: 11px 14px;
+      transition: border-color .15s;
+    }
+    .search-box:focus-within { border-color: var(--teal); }
+    .search-box svg { width: 16px; height: 16px; color: var(--text-light); flex-shrink: 0; }
+    .search-box input {
+      border: none; background: transparent; font-family: 'Nunito', sans-serif;
+      font-size: 14px; color: var(--text-dark); outline: none; width: 100%;
+    }
+    .search-box input::placeholder { color: var(--text-light); }
+    .quick-actions { display: flex; gap: 8px; padding: 4px 16px 8px; }
+    .quick-btn {
+      flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px;
+      border: 1.5px solid var(--border); border-radius: 12px;
+      padding: 12px 8px; background: var(--white);
+      font-size: 11px; font-weight: 700; color: var(--text-mid);
+      cursor: pointer; text-decoration: none; transition: all .15s;
+    }
+    .quick-btn:hover { border-color: var(--teal); color: var(--teal); transform: translateY(-1px); }
+    .quick-icon { width: 36px; height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+    .quick-icon svg { width: 18px; height: 18px; }
+    .svc-item {
+      display: flex; align-items: center; gap: 12px;
+      padding: 14px 16px; border-bottom: 1px solid var(--border);
+      cursor: pointer; transition: background .15s; text-decoration: none;
+    }
+    .svc-item:hover { background: var(--gray-card); }
+    .svc-icon { width: 40px; height: 40px; border-radius: 12px; background: var(--teal-light); display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .svc-icon svg { width: 20px; height: 20px; color: var(--teal); }
+    .svc-info { flex: 1; min-width: 0; }
+    .svc-name { font-size: 14px; font-weight: 700; color: var(--text-dark); }
+    .svc-meta { font-size: 12px; color: var(--text-light); margin-top: 2px; }
+    .svc-chevron { color: var(--text-light); }
+    .svc-chevron svg { width: 16px; height: 16px; }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+  <div id="topbar"></div>
+
+  <div class="page-content">
+    <!-- Hero -->
+    <div class="hero">
+      <div>
+        <h2 class="hero-title" id="hero-title">Olá! 👋</h2>
+        <p class="hero-sub">Pronto para trocar conhecimento?</p>
+      </div>
+      <div class="balance-card">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        <span><strong id="balance">0</strong>h de créditos</span>
+      </div>
+    </div>
+
+    <!-- Search -->
+    <div class="search-wrap">
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input type="text" id="search-input" placeholder="Buscar serviços...">
+      </div>
+    </div>
+
+    <!-- Quick actions -->
+    <div class="quick-actions">
+      <a href="create-service.html" class="quick-btn">
+        <div class="quick-icon" style="background:var(--teal-light);">
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </div>
+        Oferecer
+      </a>
+      <a href="services.html" class="quick-btn">
+        <div class="quick-icon" style="background:#EEF2FF;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#6366F1" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </div>
+        Buscar
+      </a>
+      <a href="trades.html" class="quick-btn">
+        <div class="quick-icon" style="background:#FEF3C7;">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>
+        </div>
+        Trocas
+      </a>
+    </div>
+
+    <!-- Services -->
+    <div class="section-header">
+      <span class="section-title" id="list-title">Serviços Disponíveis</span>
+      <a href="services.html" class="section-link">Ver todos</a>
+    </div>
+    <div id="services-list">
+      <div class="spinner"></div>
+    </div>
+  </div>
+
+  <div id="bottom-nav"></div>
+</div>
+
+<script type="module">
+  import { supabase } from '../js/supabase.js'
+  import { requireAuth, getProfile, navHTML, topbarHTML, avatarHTML, starsHTML, toast } from '../js/utils.js'
+
+  const user = await requireAuth(supabase)
+  if (!user) throw new Error('not auth')
+
+  document.getElementById('topbar').innerHTML = topbarHTML()
+  document.getElementById('bottom-nav').innerHTML = navHTML('dashboard')
+
+  const profile = await getProfile(supabase, user.id)
+  const firstName = profile?.name?.split(' ')[0] || 'Estudante'
+  document.getElementById('hero-title').textContent = `Olá, ${firstName}! 👋`
+  document.getElementById('balance').textContent = profile?.balance ?? 0
+
+  async function loadServices(query = '') {
+    const list = document.getElementById('services-list')
+    list.innerHTML = '<div class="spinner"></div>'
+    let q = supabase
+      .from('services')
+      .select('*, profiles(name, course, avatar_url, rating)')
+      .eq('status', 'active')
+      .neq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(10)
+    if (query) q = q.ilike('title', `%${query}%`)
+    const { data } = await q
+    const services = data || []
+    document.getElementById('list-title').textContent = query ? 'Resultados' : 'Serviços Disponíveis'
+    if (!services.length) {
+      list.innerHTML = `<div class="empty-state"><div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div><p class="empty-title">Nenhum serviço encontrado</p></div>`
+      return
+    }
+    list.innerHTML = services.map(s => `
+      <a href="services.html" class="svc-item animate-in">
+        ${avatarHTML(s.profiles?.name || '?', 40, s.profiles?.avatar_url)}
+        <div class="svc-info">
+          <div class="svc-name">${s.title}</div>
+          <div class="svc-meta">${s.profiles?.name || ''} · ${s.estimated_hours}h</div>
+          <div>${starsHTML(s.profiles?.rating || 0)}</div>
+        </div>
+        <div class="svc-chevron"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></div>
+      </a>`).join('')
+  }
+
+  await loadServices()
+
+  let searchTimer
+  document.getElementById('search-input').addEventListener('input', (e) => {
+    clearTimeout(searchTimer)
+    searchTimer = setTimeout(() => loadServices(e.target.value.trim()), 400)
+  })
+</script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Time4Skills – Notificações</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/global.css">
+  <style>
+    .notif-item { display:flex;align-items:flex-start;gap:12px;padding:16px;border-bottom:1px solid var(--border); }
+    .notif-item.unread { background:var(--teal-light); }
+    .notif-dot { width:8px;height:8px;border-radius:50%;background:var(--teal);flex-shrink:0;margin-top:4px; }
+    .notif-dot.read { opacity:0; }
+    .notif-msg  { font-size:14px;font-weight:600;color:var(--text-dark);line-height:1.4; }
+    .notif-time { font-size:12px;color:var(--text-light);margin-top:3px; }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+  <div id="topbar"></div>
+  <div class="page-content">
+    <div id="notif-list"><div class="spinner"></div></div>
+  </div>
+</div>
+<script type="module">
+  import { supabase } from '../js/supabase.js'
+  import { requireAuth, topbarHTML, relativeTime } from '../js/utils.js'
+
+  const user = await requireAuth(supabase)
+  document.getElementById('topbar').innerHTML = topbarHTML({ back: 'dashboard.html', title: 'Notificações', showIcons: false })
+
+  const { data } = await supabase.from('notifications')
+    .select('*').eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+
+  // Mark all as read
+  supabase.from('notifications').update({ read: true }).eq('user_id', user.id).eq('read', false).then()
+
+  const notifs = data || []
+  const el = document.getElementById('notif-list')
+
+  if (!notifs.length) {
+    el.innerHTML = `<div class="empty-state"><div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></div><p class="empty-title">Nenhuma notificação</p><p class="empty-desc">Você está em dia!</p></div>`
+  } else {
+    el.innerHTML = notifs.map(n => `
+      <div class="notif-item ${!n.read?'unread':''} animate-in">
+        <div class="notif-dot ${n.read?'read':''}"></div>
+        <div>
+          <p class="notif-msg">${n.message}</p>
+          <p class="notif-time">${relativeTime(n.created_at)}</p>
+        </div>
+      </div>`).join('')
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Time4Skills – Cadastro</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/global.css">
+  <style>
+    body { background: var(--white); }
+    .auth-page { min-height: 100vh; display: flex; flex-direction: column; max-width: 480px; margin: 0 auto; }
+    .auth-hero { background: linear-gradient(135deg, var(--blue-dark), var(--teal)); padding: 40px 24px 36px; }
+    .auth-logo { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .auth-logo-icon { width: 48px; height: 48px; background: rgba(255,255,255,.15); border-radius: 14px; display: flex; align-items: center; justify-content: center; }
+    .auth-logo-icon svg { width: 28px; height: 28px; }
+    .auth-brand { font-size: 20px; font-weight: 900; color: #fff; line-height: 1.1; }
+    .auth-brand-sub { font-size: 12px; font-weight: 600; color: rgba(255,255,255,.7); }
+    .auth-hero-text { font-size: 20px; font-weight: 800; color: #fff; line-height: 1.3; }
+    .auth-card { flex: 1; background: var(--white); border-radius: 28px 28px 0 0; margin-top: -20px; padding: 24px 24px 40px; box-shadow: 0 -4px 24px rgba(0,0,0,.06); overflow-y: auto; }
+    .auth-card-title { font-size: 18px; font-weight: 800; color: var(--text-dark); margin-bottom: 18px; }
+    .auth-form { display: flex; flex-direction: column; gap: 14px; }
+    .auth-footer { text-align: center; margin-top: 18px; font-size: 14px; color: var(--text-light); font-weight: 600; }
+    .auth-footer a { color: var(--teal); font-weight: 800; text-decoration: none; }
+  </style>
+</head>
+<body>
+<div class="auth-page">
+  <div class="auth-hero">
+    <div class="auth-logo">
+      <div class="auth-logo-icon">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M12 3C9 3 6.5 5 6 8C4 8.5 2.5 10.2 2.5 12.3C2.5 14.8 4.5 16.8 7 16.8H17.5C19.4 16.8 21 15.2 21 13.3C21 11.6 19.8 10.2 18.2 9.8C18.1 6 15.4 3 12 3Z" fill="white"/><path d="M9 13L11 15L15 11" stroke="#2BAF8A" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </div>
+      <div>
+        <div class="auth-brand">Time4Skills</div>
+        <div class="auth-brand-sub">Acadêmico</div>
+      </div>
+    </div>
+    <p class="auth-hero-text">Crie sua conta e<br>comece a trocar!</p>
+  </div>
+  <div class="auth-card">
+    <h2 class="auth-card-title">Criar conta</h2>
+    <form class="auth-form" id="reg-form" novalidate>
+      <div class="field">
+        <label for="name">Nome completo</label>
+        <div class="input-wrap">
+          <span class="icon-left"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+          <input type="text" id="name" class="has-icon-left" placeholder="João Silva">
+        </div>
+        <span class="error-msg hidden" id="name-err"></span>
+      </div>
+      <div class="field">
+        <label for="email">E-mail</label>
+        <div class="input-wrap">
+          <span class="icon-left"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg></span>
+          <input type="email" id="email" class="has-icon-left" placeholder="seu@email.com">
+        </div>
+        <span class="error-msg hidden" id="email-err"></span>
+      </div>
+      <div class="field">
+        <label for="course">Curso</label>
+        <select id="course">
+          <option value="">Selecione seu curso</option>
+          <option>ADS – Análise e Desenvolvimento de Sistemas</option>
+          <option>Engenharia de Software</option>
+          <option>Ciência da Computação</option>
+          <option>Sistemas de Informação</option>
+          <option>Design Gráfico</option>
+          <option>Administração</option>
+          <option>Contabilidade</option>
+          <option>Direito</option>
+          <option>Pedagogia</option>
+          <option>Engenharia Civil</option>
+          <option>Outro</option>
+        </select>
+        <span class="error-msg hidden" id="course-err"></span>
+      </div>
+      <div class="field">
+        <label for="password">Senha</label>
+        <div class="input-wrap">
+          <span class="icon-left"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+          <input type="password" id="password" class="has-icon-left" placeholder="Mínimo 6 caracteres">
+        </div>
+        <span class="error-msg hidden" id="pw-err"></span>
+      </div>
+      <div class="field">
+        <label for="confirm">Confirmar senha</label>
+        <div class="input-wrap">
+          <span class="icon-left"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+          <input type="password" id="confirm" class="has-icon-left" placeholder="Repita a senha">
+        </div>
+        <span class="error-msg hidden" id="confirm-err"></span>
+      </div>
+      <button type="submit" class="btn btn-primary btn-lg btn-full" id="reg-btn">Criar conta</button>
+    </form>
+    <p class="auth-footer">Já tem conta? <a href="index.html">Entrar</a></p>
+  </div>
+</div>
+
+<script type="module">
+  import { supabase } from '../js/supabase.js'
+  import { toast } from '../js/utils.js'
+
+  function showErr(id, msg) {
+    const el = document.getElementById(id)
+    el.textContent = msg; el.classList.remove('hidden')
+    const inputId = id.replace('-err','')
+    document.getElementById(inputId)?.classList.add('error')
+  }
+  function clearErrs() {
+    document.querySelectorAll('.error-msg').forEach(e => e.classList.add('hidden'))
+    document.querySelectorAll('.error').forEach(e => e.classList.remove('error'))
+  }
+
+  document.getElementById('reg-form').addEventListener('submit', async (e) => {
+    e.preventDefault()
+    clearErrs()
+    const name     = document.getElementById('name').value.trim()
+    const email    = document.getElementById('email').value.trim()
+    const course   = document.getElementById('course').value
+    const password = document.getElementById('password').value
+    const confirm  = document.getElementById('confirm').value
+    let valid = true
+    if (!name)              { showErr('name-err',    'Informe seu nome'); valid = false }
+    if (!email)             { showErr('email-err',   'Informe o e-mail'); valid = false }
+    if (!course)            { showErr('course-err',  'Selecione o curso'); valid = false }
+    if (password.length < 6){ showErr('pw-err',      'Mínimo 6 caracteres'); valid = false }
+    if (password !== confirm){ showErr('confirm-err','Senhas não conferem'); valid = false }
+    if (!valid) return
+
+    const btn = document.getElementById('reg-btn')
+    btn.classList.add('btn-loading'); btn.disabled = true
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email, password,
+        options: { data: { name, course } }
+      })
+      if (error) throw error
+      // Insert profile
+      await supabase.from('profiles').upsert({ id: data.user.id, name, email, course, balance: 5 })
+      toast('Conta criada! Verifique seu e-mail para confirmar.', 'success', 5000)
+      setTimeout(() => window.location.href = 'index.html', 2000)
+    } catch (err) {
+      toast(err.message || 'Erro ao criar conta', 'error')
+    } finally {
+      btn.classList.remove('btn-loading'); btn.disabled = false
+    }
+  })
+</script>
+</body>
+</html>

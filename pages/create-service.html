@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Time4Skills – Criar Serviço</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/global.css">
+  <style>
+    .form-wrap { padding: 20px 16px 32px; display: flex; flex-direction: column; gap: 18px; }
+    .cat-grid  { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px; }
+    .cat-btn {
+      padding: 7px 14px; border-radius: 99px;
+      border: 1.5px solid var(--border); background: var(--white);
+      font-family: 'Nunito',sans-serif; font-size: 13px; font-weight: 700;
+      color: var(--text-mid); cursor: pointer; transition: all .15s;
+    }
+    .cat-btn:hover  { border-color: var(--teal); color: var(--teal); }
+    .cat-btn.active { background: var(--teal); border-color: var(--teal); color: #fff; }
+    .info-box { background: var(--teal-light); border-radius: 10px; padding: 12px 14px; font-size: 13px; color: var(--teal-dark); line-height: 1.5; }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+  <div id="topbar"></div>
+  <div class="page-content">
+    <form class="form-wrap" id="svc-form" novalidate>
+      <div class="field">
+        <label>Título do Serviço</label>
+        <input type="text" id="title" placeholder="Ex: Aula de Cálculo I">
+        <span class="error-msg hidden" id="title-err"></span>
+      </div>
+      <div class="field">
+        <label>Descrição</label>
+        <textarea id="desc" placeholder="Descreva o que você oferece, seu nível de conhecimento e como pode ajudar..." style="min-height:110px;"></textarea>
+        <span class="error-msg hidden" id="desc-err"></span>
+      </div>
+      <div class="field">
+        <label>Tempo Estimado (horas)</label>
+        <input type="number" id="hours" placeholder="Ex: 2" min="0.5" max="8" step="0.5">
+        <span class="error-msg hidden" id="hours-err"></span>
+      </div>
+      <div class="field">
+        <label>Categoria</label>
+        <div class="cat-grid" id="cat-grid"></div>
+        <span class="error-msg hidden" id="cat-err"></span>
+      </div>
+      <div class="info-box">💡 Você receberá <strong id="preview-hours">?</strong> crédito(s) quando o serviço for concluído.</div>
+      <button type="submit" class="btn btn-primary btn-lg btn-full" id="submit-btn">Publicar Serviço</button>
+    </form>
+  </div>
+</div>
+
+<script type="module">
+  import { supabase } from '../js/supabase.js'
+  import { requireAuth, topbarHTML, toast } from '../js/utils.js'
+
+  const user = await requireAuth(supabase)
+  document.getElementById('topbar').innerHTML = topbarHTML({ back: 'services.html', title: 'Criar Serviço', showIcons: false })
+
+  const CATS = ['Exatas','TI','Idiomas','Humanas','Artes','Outros']
+  let selectedCat = ''
+
+  document.getElementById('cat-grid').innerHTML = CATS.map(c =>
+    `<button type="button" class="cat-btn" data-cat="${c}">${c}</button>`
+  ).join('')
+
+  document.querySelectorAll('.cat-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      selectedCat = btn.dataset.cat
+      document.querySelectorAll('.cat-btn').forEach(b => b.classList.remove('active'))
+      btn.classList.add('active')
+    })
+  })
+
+  document.getElementById('hours').addEventListener('input', e => {
+    document.getElementById('preview-hours').textContent = e.target.value || '?'
+  })
+
+  function showErr(id, msg) {
+    const el = document.getElementById(id); el.textContent = msg; el.classList.remove('hidden')
+    const inp = document.getElementById(id.replace('-err',''))
+    inp?.classList.add('error')
+  }
+  function clearErrs() {
+    document.querySelectorAll('.error-msg').forEach(e => e.classList.add('hidden'))
+    document.querySelectorAll('.error').forEach(e => e.classList.remove('error'))
+  }
+
+  document.getElementById('svc-form').addEventListener('submit', async e => {
+    e.preventDefault(); clearErrs()
+    const title = document.getElementById('title').value.trim()
+    const desc  = document.getElementById('desc').value.trim()
+    const hours = parseFloat(document.getElementById('hours').value)
+    let valid = true
+    if (!title)          { showErr('title-err','Informe o título'); valid = false }
+    if (!desc)           { showErr('desc-err','Informe a descrição'); valid = false }
+    if (!hours || hours<=0) { showErr('hours-err','Informe um tempo válido'); valid = false }
+    if (!selectedCat)    { showErr('cat-err','Selecione uma categoria'); valid = false }
+    if (!valid) return
+
+    const btn = document.getElementById('submit-btn')
+    btn.classList.add('btn-loading'); btn.disabled = true
+    try {
+      const { error } = await supabase.from('services').insert({
+        user_id: user.id, title, description: desc,
+        estimated_hours: hours, category: selectedCat, status: 'active'
+      })
+      if (error) throw error
+      toast('Serviço publicado!')
+      setTimeout(() => window.location.href = 'services.html', 1000)
+    } catch {
+      toast('Erro ao publicar', 'error')
+      btn.classList.remove('btn-loading'); btn.disabled = false
+    }
+  })
+</script>
+</body>
+</html>

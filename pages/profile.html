@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Time4Skills – Perfil</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../css/global.css">
+  <style>
+    .profile-hero { background:linear-gradient(135deg,var(--blue-dark),var(--teal)); padding:28px 20px 24px; display:flex; align-items:center; gap:16px; }
+    .profile-info { flex:1; }
+    .profile-name   { font-size:18px;font-weight:800;color:#fff; }
+    .profile-course { font-size:12px;color:rgba(255,255,255,.75);margin-top:2px;font-weight:500; }
+    .profile-rating { display:flex;align-items:center;gap:6px;margin-top:4px;font-size:12px;color:rgba(255,255,255,.85);font-weight:600; }
+    .balance-box { display:flex;flex-direction:column;align-items:center;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.25);border-radius:12px;padding:8px 14px;flex-shrink:0; }
+    .balance-num { font-size:20px;font-weight:900;color:#fff; }
+    .balance-lbl { font-size:10px;color:rgba(255,255,255,.7);font-weight:600; }
+    .profile-actions { display:flex;gap:8px;padding:14px 16px;border-bottom:1px solid var(--border); }
+    .profile-section { padding:16px;border-bottom:1px solid var(--border); }
+    .profile-section-title { font-size:14px;font-weight:800;color:var(--text-dark);margin-bottom:12px; }
+    .skills-wrap { display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px; }
+    .skill-tag { display:inline-flex;align-items:center;gap:6px;background:var(--teal-light);color:var(--teal-dark);font-size:12px;font-weight:700;padding:5px 12px;border-radius:99px; }
+    .skill-remove { background:none;border:none;cursor:pointer;color:var(--teal-dark);display:flex;align-items:center;padding:0; }
+    .skill-remove svg { width:12px;height:12px; }
+    .add-skill-row { display:flex;gap:8px; }
+    .review-item { margin-bottom:14px; }
+    .review-head { display:flex;align-items:center;gap:8px;margin-bottom:4px; }
+    .review-author { font-size:13px;font-weight:700; }
+    .review-comment { font-size:13px;color:var(--text-mid);line-height:1.5;padding-left:40px; }
+    .edit-form { display:flex;flex-direction:column;gap:10px;flex:1; }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+  <div id="topbar"></div>
+  <div class="page-content">
+    <!-- Hero -->
+    <div class="profile-hero">
+      <div id="avatar-wrap"></div>
+      <div class="profile-info" id="profile-info">
+        <div class="profile-name" id="p-name">Carregando...</div>
+        <div class="profile-course" id="p-course"></div>
+        <div class="profile-rating" id="p-rating"></div>
+      </div>
+      <div class="balance-box">
+        <span class="balance-num" id="p-balance">0</span>
+        <span class="balance-lbl">créditos</span>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="profile-actions">
+      <button class="btn btn-secondary btn-sm" id="edit-btn">Editar Perfil</button>
+      <button class="btn btn-ghost btn-sm" id="logout-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:14px;height:14px;"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Sair
+      </button>
+    </div>
+
+    <!-- Edit form (hidden by default) -->
+    <div class="profile-section hidden" id="edit-section">
+      <p class="profile-section-title">Editar Perfil</p>
+      <div class="edit-form">
+        <div class="field"><label>Nome</label><input type="text" id="edit-name"></div>
+        <div class="field"><label>Curso</label><input type="text" id="edit-course"></div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-primary btn-sm" id="save-btn">Salvar</button>
+          <button class="btn btn-ghost btn-sm" id="cancel-edit-btn">Cancelar</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Skills -->
+    <div class="profile-section">
+      <p class="profile-section-title">Habilidades</p>
+      <div class="skills-wrap" id="skills-list"></div>
+      <div class="add-skill-row">
+        <input type="text" id="new-skill" placeholder="Nova habilidade..." style="flex:1;">
+        <button class="btn btn-primary btn-sm" id="add-skill-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:16px;height:16px;"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Reviews -->
+    <div class="profile-section">
+      <p class="profile-section-title">Avaliações</p>
+      <div id="reviews-list"><div class="spinner"></div></div>
+    </div>
+  </div>
+  <div id="bottom-nav"></div>
+</div>
+
+<script type="module">
+  import { supabase } from '../js/supabase.js'
+  import { requireAuth, navHTML, topbarHTML, avatarHTML, starsHTML, toast } from '../js/utils.js'
+
+  const user = await requireAuth(supabase)
+  document.getElementById('topbar').innerHTML = topbarHTML()
+  document.getElementById('bottom-nav').innerHTML = navHTML('profile')
+
+  let profile, skills = [], reviews = []
+
+  async function loadAll() {
+    const [{ data: p }, { data: sk }, { data: rv }] = await Promise.all([
+      supabase.from('profiles').select('*').eq('id', user.id).single(),
+      supabase.from('skills').select('*').eq('user_id', user.id),
+      supabase.from('reviews').select('*, reviewer:profiles!reviews_reviewer_id_fkey(name,avatar_url)').eq('reviewed_id', user.id).order('created_at',{ascending:false})
+    ])
+    profile = p; skills = sk||[]; reviews = rv||[]
+    renderProfile(); renderSkills(); renderReviews()
+  }
+
+  function renderProfile() {
+    document.getElementById('avatar-wrap').innerHTML = avatarHTML(profile?.name||'?', 68, profile?.avatar_url)
+    document.getElementById('p-name').textContent    = profile?.name || ''
+    document.getElementById('p-course').textContent  = profile?.course || ''
+    document.getElementById('p-balance').textContent = profile?.balance ?? 0
+    const avg = reviews.length ? (reviews.reduce((a,r)=>a+r.rating,0)/reviews.length).toFixed(1) : null
+    document.getElementById('p-rating').innerHTML = avg
+      ? `${starsHTML(+avg)} <span>${avg} (${reviews.length} avaliações)</span>`
+      : ''
+    document.getElementById('edit-name').value   = profile?.name||''
+    document.getElementById('edit-course').value = profile?.course||''
+  }
+
+  function renderSkills() {
+    document.getElementById('skills-list').innerHTML = skills.map(s =>
+      `<span class="skill-tag">${s.name}<button class="skill-remove" onclick="removeSkill('${s.id}')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button></span>`
+    ).join('') || '<p style="font-size:13px;color:var(--text-light);">Nenhuma habilidade cadastrada.</p>'
+  }
+
+  function renderReviews() {
+    const el = document.getElementById('reviews-list')
+    if (!reviews.length) { el.innerHTML = '<p style="font-size:13px;color:var(--text-light);">Nenhuma avaliação ainda.</p>'; return }
+    el.innerHTML = reviews.map(r => `
+      <div class="review-item animate-in">
+        <div class="review-head">
+          ${avatarHTML(r.reviewer?.name||'?', 32, r.reviewer?.avatar_url)}
+          <div><p class="review-author">${r.reviewer?.name||''}</p>${starsHTML(r.rating)}</div>
+        </div>
+        ${r.comment ? `<p class="review-comment">${r.comment}</p>` : ''}
+      </div>`).join('')
+  }
+
+  // Edit
+  document.getElementById('edit-btn').addEventListener('click', () => {
+    document.getElementById('edit-section').classList.remove('hidden')
+  })
+  document.getElementById('cancel-edit-btn').addEventListener('click', () => {
+    document.getElementById('edit-section').classList.add('hidden')
+  })
+  document.getElementById('save-btn').addEventListener('click', async () => {
+    const name   = document.getElementById('edit-name').value.trim()
+    const course = document.getElementById('edit-course').value.trim()
+    if (!name) return
+    const btn = document.getElementById('save-btn')
+    btn.classList.add('btn-loading'); btn.disabled = true
+    await supabase.from('profiles').update({ name, course }).eq('id', user.id)
+    await loadAll()
+    document.getElementById('edit-section').classList.add('hidden')
+    toast('Perfil atualizado!')
+    btn.classList.remove('btn-loading'); btn.disabled = false
+  })
+
+  // Skills
+  document.getElementById('add-skill-btn').addEventListener('click', addSkill)
+  document.getElementById('new-skill').addEventListener('keydown', e => { if (e.key==='Enter') addSkill() })
+  async function addSkill() {
+    const val = document.getElementById('new-skill').value.trim()
+    if (!val) return
+    const { data } = await supabase.from('skills').insert({ user_id: user.id, name: val }).select().single()
+    skills.push(data); renderSkills()
+    document.getElementById('new-skill').value = ''
+  }
+  window.removeSkill = async (id) => {
+    await supabase.from('skills').delete().eq('id', id)
+    skills = skills.filter(s => s.id !== id); renderSkills()
+  }
+
+  // Logout
+  document.getElementById('logout-btn').addEventListener('click', async () => {
+    await supabase.auth.signOut()
+    window.location.href = 'index.html'
+  })
+
+  await loadAll()
+</script>
+</body>
+</html>
