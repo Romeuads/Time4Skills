@@ -55,7 +55,9 @@
   import { supabase } from '../js/supabase.js'
   import { requireAuth, topbarHTML, toast } from '../js/utils.js'
 
-  const user = await requireAuth(supabase)
+  const { data: { session } } = await supabase.auth.getSession()
+  const user = session?.user
+  if (!user) { window.location.href = 'index.html' }
   document.getElementById('topbar').innerHTML = topbarHTML({ back: 'services.html', title: 'Criar Serviço', showIcons: false })
 
   const CATS = ['Exatas','TI','Idiomas','Humanas','Artes','Outros']
