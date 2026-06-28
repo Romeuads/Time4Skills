@@ -36,7 +36,9 @@
   import { supabase } from '../js/supabase.js'
   import { requireAuth, topbarHTML, avatarHTML } from '../js/utils.js'
 
-  const user = await requireAuth(supabase)
+  const { data: { session } } = await supabase.auth.getSession()
+  const user = session?.user
+  if (!user) { window.location.href = 'index.html' }
   document.getElementById('topbar').innerHTML = topbarHTML({ back: 'trades.html', title: 'Mensagens', showIcons: false })
 
   const urlParams    = new URLSearchParams(window.location.search)
