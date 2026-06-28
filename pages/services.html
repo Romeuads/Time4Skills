@@ -48,7 +48,9 @@
   import { supabase } from '../js/supabase.js'
   import { requireAuth, getProfile, navHTML, topbarHTML, avatarHTML, starsHTML, toast } from '../js/utils.js'
 
-  const user = await requireAuth(supabase)
+  const { data: { session } } = await supabase.auth.getSession()
+  const user = session?.user
+  if (!user) { window.location.href = 'index.html' }
   document.getElementById('topbar').innerHTML = topbarHTML()
   document.getElementById('bottom-nav').innerHTML = navHTML('services')
 
