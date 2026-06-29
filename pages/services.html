@@ -7,15 +7,15 @@
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../css/global.css">
   <style>
-    .search-row { display: flex; gap: 8px; padding: 14px 16px 8px; }
-    .search-box { flex:1; display:flex; align-items:center; gap:8px; background:var(--gray-card); border:1.5px solid var(--border); border-radius:12px; padding:11px 14px; transition:border-color .15s; }
-    .search-box:focus-within { border-color: var(--teal); }
+    .search-row { display:flex;gap:8px;padding:14px 16px 8px; }
+    .search-box { flex:1;display:flex;align-items:center;gap:8px;background:var(--gray-card);border:1.5px solid var(--border);border-radius:12px;padding:11px 14px;transition:border-color .15s; }
+    .search-box:focus-within { border-color:var(--teal); }
     .search-box svg { width:16px;height:16px;color:var(--text-light);flex-shrink:0; }
     .search-box input { border:none;background:transparent;font-family:'Nunito',sans-serif;font-size:14px;color:var(--text-dark);outline:none;width:100%; }
     .add-btn { width:46px;height:46px;border-radius:12px;background:var(--teal);border:none;color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0;cursor:pointer;text-decoration:none;transition:background .15s; }
     .add-btn:hover { background:var(--teal-dark); }
     .add-btn svg { width:20px;height:20px; }
-    .svc-card { padding:16px; border-bottom:1px solid var(--border); background:var(--white); }
+    .svc-card { padding:16px;border-bottom:1px solid var(--border);background:var(--white); }
     .svc-card-top { display:flex;align-items:flex-start;gap:12px;margin-bottom:8px; }
     .svc-card-info { flex:1;min-width:0; }
     .svc-card-title { font-size:14px;font-weight:700;color:var(--text-dark); }
@@ -23,6 +23,7 @@
     .svc-card-desc  { font-size:13px;color:var(--text-mid);line-height:1.5;margin-bottom:8px; }
     .svc-stars { display:flex;align-items:center;gap:4px; }
     .rating-num { font-size:11px;color:var(--text-light); }
+    .own-badge { text-align:center;padding:8px;font-size:12px;color:var(--text-light);font-weight:600;background:var(--gray-card);border-radius:8px;margin-top:4px; }
   </style>
 </head>
 <body>
@@ -46,16 +47,18 @@
 
 <script type="module">
   import { supabase } from '../js/supabase.js'
-  import { requireAuth, getProfile, navHTML, topbarHTML, avatarHTML, starsHTML, toast } from '../js/utils.js'
+  import { navHTML, topbarHTML, avatarHTML, starsHTML, toast } from '../js/utils.js'
 
   const { data: { session } } = await supabase.auth.getSession()
   const user = session?.user
   if (!user) { window.location.href = 'index.html' }
+
   document.getElementById('topbar').innerHTML = topbarHTML()
   document.getElementById('bottom-nav').innerHTML = navHTML('services')
 
   const CATS = ['Todos','Exatas','TI','Idiomas','Humanas','Artes','Outros']
-  let activeCat = 'Todos', searchVal = ''
+  let activeCat = 'Todos'
+  let searchVal = ''
 
   document.getElementById('cat-pills').innerHTML = CATS.map(c =>
     `<button class="cat-pill ${c==='Todos'?'active':''}" data-cat="${c}">${c}</button>`
@@ -80,34 +83,69 @@
   async function load() {
     const el = document.getElementById('list')
     el.innerHTML = '<div class="spinner"></div>'
-    let q = supabase.from('services')
-      .select('*, profiles(id,name,course,avatar_url,rating)')
-      .eq('status','active')
-      .neq('user_id', user.id)
+
+    let q = supabase
+      .from('services')
+      .select('*, profiles(id, name, course, avatar_url, rating)')
+      .eq('status', 'active')
       .order('created_at', { ascending: false })
+
     if (activeCat !== 'Todos') q = q.eq('category', activeCat)
     if (searchVal) q = q.ilike('title', `%${searchVal}%`)
+
     const { data } = await q
     const items = data || []
+
     if (!items.length) {
-      el.innerHTML = `<div class="empty-state"><div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg></div><p class="empty-title">Nenhum serviço encontrado</p><p class="empty-desc">Seja o primeiro a oferecer!</p><a href="create-service.html" class="btn btn-primary btn-sm mt-16">Oferecer serviço</a></div>`
+      el.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+            </svg>
+          </div>
+          <p class="empty-title">Nenhum serviço encontrado</p>
+          <p class="empty-desc">Seja o primeiro a oferecer!</p>
+          <a href="create-service.html" class="btn btn-primary btn-sm mt-16">Oferecer serviço</a>
+        </div>`
       return
     }
-    el.innerHTML = items.map(s => `
-      <div class="svc-card animate-in">
-        <div class="svc-card-top">
-          ${avatarHTML(s.profiles?.name||'?', 42, s.profiles?.avatar_url)}
-          <div class="svc-card-info">
-            <div class="svc-card-title">${s.title}</div>
-            <div class="svc-card-meta">${s.profiles?.name||''} · ${s.profiles?.course?.split('–')[0]?.trim()||''}</div>
-            <div class="svc-stars">${starsHTML(s.profiles?.rating||0)} <span class="rating-num">${(s.profiles?.rating||0).toFixed(1)}</span></div>
+
+    const userId = user?.id || ''
+
+    el.innerHTML = items.map(s => {
+      const isOwner = s.user_id === userId
+      const actionBtn = isOwner
+        ? `<div class="own-badge">📌 Seu serviço</div>`
+        : `<button class="btn btn-primary btn-sm btn-full solicitar-btn"
+             data-id="${s.id}"
+             data-hours="${s.estimated_hours}"
+             data-provider="${s.user_id}">
+             Solicitar
+           </button>`
+
+      return `
+        <div class="svc-card animate-in">
+          <div class="svc-card-top">
+            ${avatarHTML(s.profiles?.name || '?', 42, s.profiles?.avatar_url)}
+            <div class="svc-card-info">
+              <div class="svc-card-title">${s.title}</div>
+              <div class="svc-card-meta">
+                ${s.profiles?.name || ''} · ${s.profiles?.course?.split('–')[0]?.trim() || ''}
+              </div>
+              <div class="svc-stars">
+                ${starsHTML(s.profiles?.rating || 0)}
+                <span class="rating-num">${(s.profiles?.rating || 0).toFixed(1)}</span>
+              </div>
+            </div>
+            <span class="badge badge-teal">${s.estimated_hours}h</span>
           </div>
-          <span class="badge badge-teal">${s.estimated_hours}h</span>
-        </div>
-        ${s.description ? `<p class="svc-card-desc">${s.description}</p>` : ''}
-        ${s.category ? `<span class="badge badge-blue" style="margin-bottom:10px;">${s.category}</span>` : ''}
-        <button class="btn btn-primary btn-sm btn-full solicitar-btn" data-id="${s.id}" data-hours="${s.estimated_hours}" data-provider="${s.user_id}">Solicitar</button>
-      </div>`).join('')
+          ${s.description ? `<p class="svc-card-desc">${s.description}</p>` : ''}
+          ${s.category ? `<span class="badge badge-blue" style="margin-bottom:10px;">${s.category}</span>` : ''}
+          ${actionBtn}
+        </div>`
+    }).join('')
 
     document.querySelectorAll('.solicitar-btn').forEach(btn => {
       btn.addEventListener('click', () => solicitar(btn))
@@ -115,16 +153,30 @@
   }
 
   async function solicitar(btn) {
-    const profile = await getProfile(supabase, user.id)
-    const hours = parseFloat(btn.dataset.hours)
-    if ((profile?.balance||0) < hours) { toast('Saldo de horas insuficiente!', 'error'); return }
-    btn.classList.add('btn-loading'); btn.disabled = true
+    const providerId = btn.dataset.provider
+    const hours      = parseFloat(btn.dataset.hours)
+    const serviceId  = btn.dataset.id
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('balance')
+      .eq('id', user.id)
+      .single()
+
+    if ((profile?.balance || 0) < hours) {
+      toast('Saldo de horas insuficiente!', 'error')
+      return
+    }
+
+    btn.classList.add('btn-loading')
+    btn.disabled = true
+
     try {
       const { error } = await supabase.from('trades').insert({
-        service_id: btn.dataset.id,
+        service_id:   serviceId,
         requester_id: user.id,
-        provider_id: btn.dataset.provider,
-        status: 'pending',
+        provider_id:  providerId,
+        status:       'pending',
         hours,
       })
       if (error) throw error
@@ -134,7 +186,8 @@
       btn.disabled = true
     } catch {
       toast('Erro ao solicitar', 'error')
-      btn.classList.remove('btn-loading'); btn.disabled = false
+      btn.classList.remove('btn-loading')
+      btn.disabled = false
     }
   }
 
