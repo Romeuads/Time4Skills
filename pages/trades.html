@@ -14,10 +14,17 @@
     .trade-title { font-size:14px;font-weight:700;color:var(--text-dark); }
     .trade-peer  { font-size:12px;color:var(--text-light);margin-top:2px; }
     .trade-meta  { font-size:12px;color:var(--text-light);margin-bottom:10px; }
-    .trade-actions { display:flex;gap:8px;align-items:center; }
+    .trade-actions { display:flex;gap:8px;align-items:center;flex-wrap:wrap; }
     .chat-btn { width:34px;height:34px;border-radius:8px;border:1.5px solid var(--border);background:var(--white);display:flex;align-items:center;justify-content:center;color:var(--text-mid);cursor:pointer;flex-shrink:0;text-decoration:none;transition:all .15s; }
     .chat-btn:hover { border-color:var(--teal);color:var(--teal); }
     .chat-btn svg { width:16px;height:16px; }
+    .confirm-box { background:var(--teal-light);border:1.5px solid var(--teal-mid);border-radius:10px;padding:10px 12px;margin-bottom:10px; }
+    .confirm-box p { font-size:12px;color:var(--teal-dark);font-weight:600;line-height:1.5;margin-bottom:8px; }
+    .confirm-progress { display:flex;gap:6px;margin-bottom:8px; }
+    .confirm-step { flex:1;padding:5px 8px;border-radius:6px;font-size:11px;font-weight:700;text-align:center; }
+    .confirm-step.done { background:var(--teal);color:#fff; }
+    .confirm-step.pending { background:var(--white);color:var(--text-light);border:1px solid var(--border); }
+    .waiting-box { background:var(--yellow-light);border:1.5px solid #F5A623;border-radius:10px;padding:10px 12px;font-size:12px;color:#92400E;font-weight:600;line-height:1.5; }
   </style>
 </head>
 <body>
@@ -25,7 +32,9 @@
   <div id="topbar"></div>
   <div class="page-content">
     <div class="tabs">
-      <button class="tab-btn active" data-tab="active">Em andamento <span class="tab-count hidden" id="active-count">0</span></button>
+      <button class="tab-btn active" data-tab="active">
+        Em andamento <span class="tab-count hidden" id="active-count">0</span>
+      </button>
       <button class="tab-btn" data-tab="done">Finalizadas</button>
     </div>
     <div id="trade-list"><div class="spinner"></div></div>
@@ -35,23 +44,25 @@
 
 <script type="module">
   import { supabase } from '../js/supabase.js'
-  import { requireAuth, navHTML, topbarHTML, avatarHTML, toast } from '../js/utils.js'
+  import { navHTML, topbarHTML, avatarHTML, toast } from '../js/utils.js'
 
   const { data: { session } } = await supabase.auth.getSession()
   const user = session?.user
   if (!user) { window.location.href = 'index.html' }
+
   document.getElementById('topbar').innerHTML = topbarHTML()
   document.getElementById('bottom-nav').innerHTML = navHTML('trades')
 
   const STATUS = {
-    pending:    { label:'Pendente',     cls:'badge-yellow' },
-    accepted:   { label:'Aceito',       cls:'badge-teal'   },
-    in_progress:{ label:'Em andamento', cls:'badge-blue'   },
-    completed:  { label:'Concluído',    cls:'badge-teal'   },
-    rejected:   { label:'Recusado',     cls:'badge-red'    },
+    pending:               { label:'Pendente',            cls:'badge-yellow' },
+    accepted:              { label:'Em andamento',        cls:'badge-blue'   },
+    awaiting_confirmation: { label:'Aguard. confirmação', cls:'badge-yellow' },
+    completed:             { label:'Concluído',           cls:'badge-teal'   },
+    rejected:              { label:'Recusado',            cls:'badge-red'    },
   }
 
-  let currentTab = 'active', allTrades = []
+  let currentTab = 'active'
+  let allTrades  = []
 
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -65,65 +76,188 @@
   async function load() {
     const { data } = await supabase
       .from('trades')
-      .select(`*, services(title,estimated_hours),
-        requester:profiles!trades_requester_id_fkey(id,name,avatar_url),
-        provider:profiles!trades_provider_id_fkey(id,name,avatar_url)`)
+      .select(`*,
+        services(title, estimated_hours),
+        requester:profiles!trades_requester_id_fkey(id, name, avatar_url),
+        provider:profiles!trades_provider_id_fkey(id, name, avatar_url)
+      `)
       .or(`requester_id.eq.${user.id},provider_id.eq.${user.id}`)
       .order('created_at', { ascending: false })
+
     allTrades = data || []
-    const activeCount = allTrades.filter(t => ['pending','accepted','in_progress'].includes(t.status)).length
+
+    const activeCount = allTrades.filter(t =>
+      ['pending','accepted','awaiting_confirmation'].includes(t.status)
+    ).length
+
     const countEl = document.getElementById('active-count')
-    if (activeCount > 0) { countEl.textContent = activeCount; countEl.classList.remove('hidden') }
+    if (activeCount > 0) {
+      countEl.textContent = activeCount
+      countEl.classList.remove('hidden')
+    } else {
+      countEl.classList.add('hidden')
+    }
+
     render()
   }
 
   function render() {
-    const active = ['pending','accepted','in_progress']
-    const done   = ['completed','rejected']
-    const trades = allTrades.filter(t => currentTab === 'active' ? active.includes(t.status) : done.includes(t.status))
+    const activeSt = ['pending','accepted','awaiting_confirmation']
+    const doneSt   = ['completed','rejected']
+    const trades   = allTrades.filter(t =>
+      currentTab === 'active' ? activeSt.includes(t.status) : doneSt.includes(t.status)
+    )
+
     const el = document.getElementById('trade-list')
+
     if (!trades.length) {
-      el.innerHTML = `<div class="empty-state"><div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg></div><p class="empty-title">${currentTab==='active'?'Nenhuma troca ativa':'Nenhuma troca finalizada'}</p><p class="empty-desc">Explore os serviços para começar uma troca.</p></div>`
+      el.innerHTML = `
+        <div class="empty-state">
+          <div class="empty-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="17 1 21 5 17 9"/>
+              <path d="M3 11V9a4 4 0 0 1 4-4h14"/>
+              <polyline points="7 23 3 19 7 15"/>
+              <path d="M21 13v2a4 4 0 0 1-4 4H3"/>
+            </svg>
+          </div>
+          <p class="empty-title">${currentTab==='active' ? 'Nenhuma troca ativa' : 'Nenhuma troca finalizada'}</p>
+          <p class="empty-desc">Explore os serviços para começar uma troca.</p>
+        </div>`
       return
     }
+
     el.innerHTML = '<div class="trade-list">' + trades.map(t => {
-      const isProv = t.provider_id === user.id
-      const peer   = isProv ? t.requester : t.provider
-      const st     = STATUS[t.status] || { label: t.status, cls: 'badge-gray' }
-      return `<div class="trade-card animate-in">
-        <div class="trade-head">
-          ${avatarHTML(peer?.name||'?', 40, peer?.avatar_url)}
-          <div class="trade-head-info">
-            <div class="trade-title">${t.services?.title||'Serviço'}</div>
-            <div class="trade-peer">${isProv?'Solicitado por':'Oferecido por'} <strong>${peer?.name||''}</strong></div>
+      const isProv       = t.provider_id === user.id
+      const peer         = isProv ? t.requester : t.provider
+      const st           = STATUS[t.status] || { label: t.status, cls: 'badge-gray' }
+      const hours        = t.services?.estimated_hours || t.hours || 1
+      const iConfirmed   = isProv ? t.confirmed_by_provider   : t.confirmed_by_requester
+      const peerConfirmed = isProv ? t.confirmed_by_requester : t.confirmed_by_provider
+      const peerName     = isProv ? 'Solicitante' : 'Provedor'
+      const myName       = isProv ? 'Você (provedor)' : 'Você (solicitante)'
+
+      let confirmSection = ''
+
+      if (t.status === 'accepted') {
+        confirmSection = `
+          <div class="trade-actions">
+            <button class="btn btn-secondary btn-sm" style="flex:1;"
+              onclick="confirmConclusao('${t.id}', ${isProv})">
+              ✅ Marcar como concluída
+            </button>
+            <a href="chat.html?trade=${t.id}" class="chat-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+            </a>
+          </div>`
+
+      } else if (t.status === 'awaiting_confirmation') {
+        if (!iConfirmed) {
+          confirmSection = `
+            <div class="confirm-box">
+              <p>⏳ <strong>${peerName}</strong> já confirmou a conclusão. Você confirma que a troca foi realizada?</p>
+              <div class="confirm-progress">
+                <div class="confirm-step ${peerConfirmed ? 'done' : 'pending'}">${peerName} ${peerConfirmed ? '✓' : 'pendente'}</div>
+                <div class="confirm-step ${iConfirmed ? 'done' : 'pending'}">${myName} ${iConfirmed ? '✓' : 'pendente'}</div>
+              </div>
+              <div class="trade-actions">
+                <button class="btn btn-primary btn-sm" style="flex:1;"
+                  onclick="confirmConclusao('${t.id}', ${isProv})">
+                  ✅ Confirmar conclusão
+                </button>
+                <a href="chat.html?trade=${t.id}" class="chat-btn">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                  </svg>
+                </a>
+              </div>
+            </div>`
+        } else {
+          confirmSection = `
+            <div class="waiting-box">
+              ⏳ Você já confirmou! Aguardando <strong>${peerName}</strong> confirmar para transferir os créditos.
+            </div>`
+        }
+      }
+
+      return `
+        <div class="trade-card animate-in">
+          <div class="trade-head">
+            ${avatarHTML(peer?.name || '?', 40, peer?.avatar_url)}
+            <div class="trade-head-info">
+              <div class="trade-title">${t.services?.title || 'Serviço'}</div>
+              <div class="trade-peer">
+                ${isProv ? 'Solicitado por' : 'Oferecido por'} <strong>${peer?.name || ''}</strong>
+              </div>
+            </div>
+            <span class="badge ${st.cls}">${st.label}</span>
           </div>
-          <span class="badge ${st.cls}">${st.label}</span>
-        </div>
-        <div class="trade-meta">⏱ ${t.services?.estimated_hours||t.hours||1}h</div>
-        <div class="trade-actions">
-          ${isProv && t.status==='pending' ? `
-            <button class="btn btn-primary btn-sm" onclick="updateTrade('${t.id}','accepted',${t.services?.estimated_hours||t.hours||1},'${t.requester_id}','${t.provider_id}','${t.services?.title||''}')">Aceitar</button>
-            <button class="btn btn-danger btn-sm" onclick="updateTrade('${t.id}','rejected',0,'${t.requester_id}','${t.provider_id}','${t.services?.title||''}')">Recusar</button>
-          ` : ''}
-          ${t.status==='accepted' ? `
-            <button class="btn btn-secondary btn-sm" style="flex:1;" onclick="updateTrade('${t.id}','completed',${t.services?.estimated_hours||t.hours||1},'${t.requester_id}','${t.provider_id}','${t.services?.title||''}')">Marcar como concluída</button>
-            <a href="chat.html?trade=${t.id}" class="chat-btn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></a>
-          ` : ''}
-        </div>
-      </div>`
+
+          <div class="trade-meta">⏱ ${hours}h</div>
+
+          ${isProv && t.status === 'pending' ? `
+            <div class="trade-actions">
+              <button class="btn btn-primary btn-sm"
+                onclick="updateStatus('${t.id}', 'accepted')">Aceitar</button>
+              <button class="btn btn-danger btn-sm"
+                onclick="updateStatus('${t.id}', 'rejected')">Recusar</button>
+            </div>` : ''}
+
+          ${confirmSection}
+        </div>`
     }).join('') + '</div>'
   }
 
-  window.updateTrade = async (id, status, hours, requesterId, providerId, svcTitle) => {
+  window.updateStatus = async (id, status) => {
     try {
       await supabase.from('trades').update({ status }).eq('id', id)
-      if (status === 'completed') {
-        await supabase.rpc('transfer_credits', { from_user: requesterId, to_user: providerId, hours })
-        toast(`Troca concluída! +${hours}h adicionados.`)
-      } else if (status === 'accepted') toast('Troca aceita!')
-      else if (status === 'rejected')  toast('Troca recusada.', 'info')
+      if (status === 'accepted') toast('Troca aceita! Combine os detalhes pelo chat.')
+      if (status === 'rejected') toast('Troca recusada.', 'info')
       await load()
-    } catch { toast('Erro ao atualizar troca', 'error') }
+    } catch {
+      toast('Erro ao atualizar troca', 'error')
+    }
+  }
+
+  window.confirmConclusao = async (tradeId, isProvider) => {
+    try {
+      const trade = allTrades.find(t => t.id === tradeId)
+      if (!trade) return
+
+      const field        = isProvider ? 'confirmed_by_provider'  : 'confirmed_by_requester'
+      const otherConfirmed = isProvider ? trade.confirmed_by_requester : trade.confirmed_by_provider
+
+      if (otherConfirmed) {
+        // Ambos confirmaram — conclui e transfere créditos
+        const hours = trade.services?.estimated_hours || trade.hours || 1
+        await supabase.from('trades').update({
+          [field]: true,
+          status: 'completed'
+        }).eq('id', tradeId)
+
+        await supabase.rpc('transfer_credits', {
+          from_user: trade.requester_id,
+          to_user:   trade.provider_id,
+          hours,
+        })
+
+        toast(`🎉 Troca concluída! +${hours}h transferidos ao provedor.`)
+      } else {
+        // Primeira confirmação — aguarda o outro
+        await supabase.from('trades').update({
+          [field]: true,
+          status: 'awaiting_confirmation'
+        }).eq('id', tradeId)
+
+        toast('✅ Confirmação registrada! Aguardando o outro participante.', 'info')
+      }
+
+      await load()
+    } catch {
+      toast('Erro ao confirmar troca', 'error')
+    }
   }
 
   await load()
