@@ -23,7 +23,18 @@
     .svc-card-desc  { font-size:13px;color:var(--text-mid);line-height:1.5;margin-bottom:8px; }
     .svc-stars { display:flex;align-items:center;gap:4px; }
     .rating-num { font-size:11px;color:var(--text-light); }
-    .own-badge { text-align:center;padding:8px;font-size:12px;color:var(--text-light);font-weight:600;background:var(--gray-card);border-radius:8px;margin-top:4px; }
+    .svc-sched { display:flex;align-items:center;gap:6px;font-size:11px;color:var(--teal-dark);font-weight:700;background:var(--teal-light);padding:5px 9px;border-radius:8px;margin-bottom:10px;width:fit-content; }
+    .svc-sched svg { width:13px;height:13px; }
+    .own-actions { display:flex;gap:8px;margin-top:4px; }
+    .own-badge-row { display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-light);font-weight:700;margin-bottom:8px; }
+    .modal-overlay { position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:1000;padding:16px; }
+    .modal-overlay.open { display:flex; }
+    .modal-box { background:var(--white);border-radius:16px;padding:20px;max-width:420px;width:100%;max-height:90vh;overflow-y:auto; }
+    .modal-title { font-size:17px;font-weight:800;color:var(--text-dark);margin-bottom:16px; }
+    .modal-form { display:flex;flex-direction:column;gap:14px; }
+    .row-2 { display:flex;gap:12px; }
+    .row-2 .field { flex:1; }
+    .modal-actions { display:flex;gap:8px;margin-top:4px; }
   </style>
 </head>
 <body>
@@ -45,6 +56,40 @@
   <div id="bottom-nav"></div>
 </div>
 
+<div class="modal-overlay" id="edit-modal">
+  <div class="modal-box">
+    <p class="modal-title">Editar Serviço</p>
+    <div class="modal-form">
+      <div class="field">
+        <label>Título</label>
+        <input type="text" id="edit-title">
+      </div>
+      <div class="field">
+        <label>Descrição</label>
+        <textarea id="edit-desc" style="min-height:90px;"></textarea>
+      </div>
+      <div class="field">
+        <label>Tempo Estimado (horas)</label>
+        <input type="number" id="edit-hours" min="0.5" step="0.5">
+      </div>
+      <div class="row-2">
+        <div class="field">
+          <label>Data</label>
+          <input type="date" id="edit-date">
+        </div>
+        <div class="field">
+          <label>Horário</label>
+          <input type="time" id="edit-time">
+        </div>
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-primary btn-md" style="flex:1;" id="save-edit-btn">Salvar alterações</button>
+        <button class="btn btn-ghost btn-md" id="cancel-edit-btn">Cancelar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script type="module">
   import { supabase } from '../js/supabase.js'
   import { navHTML, topbarHTML, avatarHTML, starsHTML, toast } from '../js/utils.js'
@@ -59,6 +104,8 @@
   const CATS = ['Todos','Exatas','TI','Idiomas','Humanas','Artes','Outros']
   let activeCat = 'Todos'
   let searchVal = ''
+  let currentServices = []
+  let editingId = null
 
   document.getElementById('cat-pills').innerHTML = CATS.map(c =>
     `<button class="cat-pill ${c==='Todos'?'active':''}" data-cat="${c}">${c}</button>`
@@ -80,6 +127,12 @@
     timer = setTimeout(load, 400)
   })
 
+  function formatDate(dateStr) {
+    if (!dateStr) return ''
+    const [y,m,d] = dateStr.split('-')
+    return `${d}/${m}/${y}`
+  }
+
   async function load() {
     const el = document.getElementById('list')
     el.innerHTML = '<div class="spinner"></div>'
@@ -94,15 +147,14 @@
     if (searchVal) q = q.ilike('title', `%${searchVal}%`)
 
     const { data } = await q
-    const items = data || []
+    currentServices = data || []
 
-    if (!items.length) {
+    if (!currentServices.length) {
       el.innerHTML = `
         <div class="empty-state">
           <div class="empty-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="11" cy="11" r="8"/>
-              <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+              <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
             </svg>
           </div>
           <p class="empty-title">Nenhum serviço encontrado</p>
@@ -114,14 +166,17 @@
 
     const userId = user?.id || ''
 
-    el.innerHTML = items.map(s => {
+    el.innerHTML = currentServices.map(s => {
       const isOwner = s.user_id === userId
-      const actionBtn = isOwner
-        ? `<div class="own-badge">📌 Seu serviço</div>`
+
+      const actionArea = isOwner
+        ? `<div class="own-badge-row">📌 Este é o seu serviço</div>
+           <div class="own-actions">
+             <button class="btn btn-ghost btn-sm" style="flex:1;" onclick="openEdit('${s.id}')">✏️ Editar</button>
+             <button class="btn btn-danger btn-sm" style="flex:1;" onclick="deleteService('${s.id}')">🗑️ Remover</button>
+           </div>`
         : `<button class="btn btn-primary btn-sm btn-full solicitar-btn"
-             data-id="${s.id}"
-             data-hours="${s.estimated_hours}"
-             data-provider="${s.user_id}">
+             data-id="${s.id}" data-hours="${s.estimated_hours}" data-provider="${s.user_id}">
              Solicitar
            </button>`
 
@@ -142,8 +197,16 @@
             <span class="badge badge-teal">${s.estimated_hours}h</span>
           </div>
           ${s.description ? `<p class="svc-card-desc">${s.description}</p>` : ''}
-          ${s.category ? `<span class="badge badge-blue" style="margin-bottom:10px;">${s.category}</span>` : ''}
-          ${actionBtn}
+          ${s.category ? `<span class="badge badge-blue" style="margin-bottom:10px;display:inline-block;">${s.category}</span>` : ''}
+          ${s.scheduled_date ? `
+            <div class="svc-sched">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+                <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+              </svg>
+              ${formatDate(s.scheduled_date)} às ${s.scheduled_time?.slice(0,5) || ''}
+            </div>` : ''}
+          ${actionArea}
         </div>`
     }).join('')
 
@@ -158,26 +221,18 @@
     const serviceId  = btn.dataset.id
 
     const { data: profile } = await supabase
-      .from('profiles')
-      .select('balance')
-      .eq('id', user.id)
-      .single()
+      .from('profiles').select('balance').eq('id', user.id).single()
 
     if ((profile?.balance || 0) < hours) {
       toast('Saldo de horas insuficiente!', 'error')
       return
     }
 
-    btn.classList.add('btn-loading')
-    btn.disabled = true
-
+    btn.classList.add('btn-loading'); btn.disabled = true
     try {
       const { error } = await supabase.from('trades').insert({
-        service_id:   serviceId,
-        requester_id: user.id,
-        provider_id:  providerId,
-        status:       'pending',
-        hours,
+        service_id: serviceId, requester_id: user.id,
+        provider_id: providerId, status: 'pending', hours,
       })
       if (error) throw error
       toast('Solicitação enviada!')
@@ -186,8 +241,70 @@
       btn.disabled = true
     } catch {
       toast('Erro ao solicitar', 'error')
-      btn.classList.remove('btn-loading')
-      btn.disabled = false
+      btn.classList.remove('btn-loading'); btn.disabled = false
+    }
+  }
+
+  window.openEdit = (id) => {
+    const s = currentServices.find(x => x.id === id)
+    if (!s) return
+    editingId = id
+    document.getElementById('edit-title').value = s.title || ''
+    document.getElementById('edit-desc').value  = s.description || ''
+    document.getElementById('edit-hours').value = s.estimated_hours || ''
+    document.getElementById('edit-date').value  = s.scheduled_date || ''
+    document.getElementById('edit-time').value  = s.scheduled_time?.slice(0,5) || ''
+    document.getElementById('edit-modal').classList.add('open')
+  }
+
+  document.getElementById('cancel-edit-btn').addEventListener('click', () => {
+    document.getElementById('edit-modal').classList.remove('open')
+    editingId = null
+  })
+
+  document.getElementById('save-edit-btn').addEventListener('click', async () => {
+    if (!editingId) return
+    const title = document.getElementById('edit-title').value.trim()
+    const desc  = document.getElementById('edit-desc').value.trim()
+    const hours = parseFloat(document.getElementById('edit-hours').value)
+    const date  = document.getElementById('edit-date').value
+    const time  = document.getElementById('edit-time').value
+
+    if (!title || !desc || !hours) {
+      toast('Preencha todos os campos obrigatórios', 'error')
+      return
+    }
+
+    const btn = document.getElementById('save-edit-btn')
+    btn.classList.add('btn-loading'); btn.disabled = true
+
+    try {
+      const { error } = await supabase.from('services').update({
+        title, description: desc, estimated_hours: hours,
+        scheduled_date: date || null, scheduled_time: time || null,
+      }).eq('id', editingId)
+
+      if (error) throw error
+      toast('Serviço atualizado!')
+      document.getElementById('edit-modal').classList.remove('open')
+      editingId = null
+      await load()
+    } catch {
+      toast('Erro ao atualizar serviço', 'error')
+    } finally {
+      btn.classList.remove('btn-loading'); btn.disabled = false
+    }
+  })
+
+  window.deleteService = async (id) => {
+    if (!confirm('Tem certeza que deseja remover este serviço?')) return
+    try {
+      const { error } = await supabase.from('services').delete().eq('id', id)
+      if (error) throw error
+      toast('Serviço removido.', 'info')
+      await load()
+    } catch {
+      toast('Erro ao remover. Pode haver trocas vinculadas a este serviço.', 'error')
     }
   }
 
