@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Time4Skills – Agendamento</title>
+  <title>Time4Skills – Trocas</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="../css/global.css">
@@ -25,6 +25,16 @@
     .confirm-step.done { background:var(--teal);color:#fff; }
     .confirm-step.pending { background:var(--white);color:var(--text-light);border:1px solid var(--border); }
     .waiting-box { background:var(--yellow-light);border:1.5px solid #F5A623;border-radius:10px;padding:10px 12px;font-size:12px;color:#92400E;font-weight:600;line-height:1.5; }
+    .review-box { background:#F8F9FA;border:1.5px solid var(--border);border-radius:10px;padding:12px 14px;margin-top:10px; }
+    .review-box-title { font-size:13px;font-weight:800;color:var(--text-dark);margin-bottom:10px; }
+    .stars-input { display:flex;gap:6px;margin-bottom:10px; }
+    .star-btn { font-size:26px;cursor:pointer;background:none;border:none;color:var(--border);transition:color .15s, transform .1s;padding:0;line-height:1; }
+    .star-btn:hover, .star-btn.selected { color:#F5A623; }
+    .star-btn:hover { transform:scale(1.2); }
+    .review-comment { width:100%;padding:10px 12px;border:1.5px solid var(--border);border-radius:8px;font-family:'Nunito',sans-serif;font-size:13px;color:var(--text-dark);outline:none;resize:none;min-height:70px;margin-bottom:10px;transition:border-color .15s; }
+    .review-comment:focus { border-color:var(--teal); }
+    .review-done { display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--teal-dark);background:var(--teal-light);border-radius:8px;padding:10px 12px;margin-top:10px; }
+    .review-done svg { width:18px;height:18px;flex-shrink:0; }
   </style>
 </head>
 <body>
@@ -59,10 +69,12 @@
     awaiting_confirmation: { label:'Aguard. confirmação', cls:'badge-yellow' },
     completed:             { label:'Concluído',           cls:'badge-teal'   },
     rejected:              { label:'Recusado',            cls:'badge-red'    },
+    cancelled:             { label:'Cancelado',           cls:'badge-gray'   },
   }
 
   let currentTab = 'active'
   let allTrades  = []
+  let myReviews  = []
 
   document.querySelectorAll('.tab-btn').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -74,17 +86,24 @@
   })
 
   async function load() {
-    const { data } = await supabase
-      .from('trades')
-      .select(`*,
-        services(title, estimated_hours),
-        requester:profiles!trades_requester_id_fkey(id, name, avatar_url),
-        provider:profiles!trades_provider_id_fkey(id, name, avatar_url)
-      `)
-      .or(`requester_id.eq.${user.id},provider_id.eq.${user.id}`)
-      .order('created_at', { ascending: false })
+    const [{ data: trades }, { data: reviews }] = await Promise.all([
+      supabase
+        .from('trades')
+        .select(`*,
+          services(title, estimated_hours),
+          requester:profiles!trades_requester_id_fkey(id, name, avatar_url),
+          provider:profiles!trades_provider_id_fkey(id, name, avatar_url)
+        `)
+        .or(`requester_id.eq.${user.id},provider_id.eq.${user.id}`)
+        .order('created_at', { ascending: false }),
+      supabase
+        .from('reviews')
+        .select('trade_id')
+        .eq('reviewer_id', user.id)
+    ])
 
-    allTrades = data || []
+    allTrades = trades || []
+    myReviews = (reviews || []).map(r => r.trade_id)
 
     const activeCount = allTrades.filter(t =>
       ['pending','accepted','awaiting_confirmation'].includes(t.status)
@@ -103,7 +122,7 @@
 
   function render() {
     const activeSt = ['pending','accepted','awaiting_confirmation']
-    const doneSt   = ['completed','rejected']
+    const doneSt   = ['completed','rejected','cancelled']
     const trades   = allTrades.filter(t =>
       currentTab === 'active' ? activeSt.includes(t.status) : doneSt.includes(t.status)
     )
@@ -128,16 +147,23 @@
     }
 
     el.innerHTML = '<div class="trade-list">' + trades.map(t => {
-      const isProv       = t.provider_id === user.id
-      const peer         = isProv ? t.requester : t.provider
-      const st           = STATUS[t.status] || { label: t.status, cls: 'badge-gray' }
-      const hours        = t.services?.estimated_hours || t.hours || 1
-      const iConfirmed   = isProv ? t.confirmed_by_provider   : t.confirmed_by_requester
-      const peerConfirmed = isProv ? t.confirmed_by_requester : t.confirmed_by_provider
-      const peerName     = isProv ? 'Solicitante' : 'Provedor'
-      const myName       = isProv ? 'Você (provedor)' : 'Você (solicitante)'
+      const isProv        = t.provider_id === user.id
+      const peer          = isProv ? t.requester : t.provider
+      const st            = STATUS[t.status] || { label: t.status, cls: 'badge-gray' }
+      const hours         = t.services?.estimated_hours || t.hours || 1
+      const iConfirmed    = isProv ? t.confirmed_by_provider   : t.confirmed_by_requester
+      const peerConfirmed = isProv ? t.confirmed_by_requester  : t.confirmed_by_provider
+      const peerName      = isProv ? 'Solicitante' : 'Provedor'
+      const myName        = isProv ? 'Você (provedor)' : 'Você (solicitante)'
+      const alreadyReviewed = myReviews.includes(t.id)
 
       let confirmSection = ''
+      let reviewSection  = ''
+
+      const cancelBtn = ['pending','accepted','awaiting_confirmation'].includes(t.status)
+        ? `<button class="btn btn-ghost btn-sm" style="margin-top:8px;width:100%;"
+             onclick="cancelTrade('${t.id}')">Cancelar troca</button>`
+        : ''
 
       if (t.status === 'accepted') {
         confirmSection = `
@@ -152,7 +178,6 @@
               </svg>
             </a>
           </div>`
-
       } else if (t.status === 'awaiting_confirmation') {
         if (!iConfirmed) {
           confirmSection = `
@@ -182,6 +207,35 @@
         }
       }
 
+      // Avaliação — só para o solicitante após concluído
+      if (t.status === 'completed' && !isProv) {
+        if (alreadyReviewed) {
+          reviewSection = `
+            <div class="review-done">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+              Você já avaliou este serviço!
+            </div>`
+        } else {
+          reviewSection = `
+            <div class="review-box">
+              <p class="review-box-title">⭐ Avalie o serviço de ${peer?.name || 'parceiro'}</p>
+              <div class="stars-input" id="stars-${t.id}">
+                ${[1,2,3,4,5].map(n =>
+                  `<button class="star-btn" data-value="${n}" onclick="selectStar('${t.id}', ${n})">★</button>`
+                ).join('')}
+              </div>
+              <textarea class="review-comment" id="comment-${t.id}"
+                placeholder="Comentário opcional..."></textarea>
+              <button class="btn btn-primary btn-sm btn-full"
+                onclick="submitReview('${t.id}', '${t.provider_id}')">
+                Enviar avaliação
+              </button>
+            </div>`
+        }
+      }
+
       return `
         <div class="trade-card animate-in">
           <div class="trade-head">
@@ -194,9 +248,7 @@
             </div>
             <span class="badge ${st.cls}">${st.label}</span>
           </div>
-
           <div class="trade-meta">⏱ ${hours}h</div>
-
           ${isProv && t.status === 'pending' ? `
             <div class="trade-actions">
               <button class="btn btn-primary btn-sm"
@@ -204,8 +256,9 @@
               <button class="btn btn-danger btn-sm"
                 onclick="updateStatus('${t.id}', 'rejected')">Recusar</button>
             </div>` : ''}
-
           ${confirmSection}
+          ${cancelBtn}
+          ${reviewSection}
         </div>`
     }).join('') + '</div>'
   }
@@ -221,42 +274,89 @@
     }
   }
 
+  window.cancelTrade = async (id) => {
+    if (!confirm('Tem certeza que deseja cancelar esta troca?')) return
+    try {
+      await supabase.from('trades').update({ status: 'cancelled' }).eq('id', id)
+      toast('Troca cancelada.', 'info')
+      await load()
+    } catch {
+      toast('Erro ao cancelar troca', 'error')
+    }
+  }
+
   window.confirmConclusao = async (tradeId, isProvider) => {
     try {
       const trade = allTrades.find(t => t.id === tradeId)
       if (!trade) return
 
-      const field        = isProvider ? 'confirmed_by_provider'  : 'confirmed_by_requester'
+      const field          = isProvider ? 'confirmed_by_provider'  : 'confirmed_by_requester'
       const otherConfirmed = isProvider ? trade.confirmed_by_requester : trade.confirmed_by_provider
 
       if (otherConfirmed) {
-        // Ambos confirmaram — conclui e transfere créditos
         const hours = trade.services?.estimated_hours || trade.hours || 1
         await supabase.from('trades').update({
           [field]: true,
           status: 'completed'
         }).eq('id', tradeId)
-
         await supabase.rpc('transfer_credits', {
           from_user: trade.requester_id,
           to_user:   trade.provider_id,
           hours,
         })
-
         toast(`🎉 Troca concluída! +${hours}h transferidos ao provedor.`)
       } else {
-        // Primeira confirmação — aguarda o outro
         await supabase.from('trades').update({
           [field]: true,
           status: 'awaiting_confirmation'
         }).eq('id', tradeId)
-
         toast('✅ Confirmação registrada! Aguardando o outro participante.', 'info')
       }
 
       await load()
     } catch {
       toast('Erro ao confirmar troca', 'error')
+    }
+  }
+
+  window.selectStar = (tradeId, value) => {
+    const container = document.getElementById(`stars-${tradeId}`)
+    container.querySelectorAll('.star-btn').forEach(btn => {
+      btn.classList.toggle('selected', parseInt(btn.dataset.value) <= value)
+    })
+    container.dataset.selected = value
+  }
+
+  window.submitReview = async (tradeId, providerId) => {
+    const container = document.getElementById(`stars-${tradeId}`)
+    const rating    = parseInt(container.dataset.selected || 0)
+    const comment   = document.getElementById(`comment-${tradeId}`).value.trim()
+
+    if (!rating) {
+      toast('Selecione uma nota de 1 a 5 estrelas!', 'error')
+      return
+    }
+
+    const btn = event.target
+    btn.classList.add('btn-loading')
+    btn.disabled = true
+
+    try {
+      const { error } = await supabase.from('reviews').insert({
+        trade_id:    tradeId,
+        reviewer_id: user.id,
+        reviewed_id: providerId,
+        rating,
+        comment: comment || null,
+      })
+      if (error) throw error
+      myReviews.push(tradeId)
+      toast('Avaliação enviada! Obrigado pelo feedback. ⭐')
+      await load()
+    } catch {
+      toast('Erro ao enviar avaliação', 'error')
+      btn.classList.remove('btn-loading')
+      btn.disabled = false
     }
   }
 
